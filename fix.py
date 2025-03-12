@@ -85,6 +85,7 @@ options = "hd:e:i:a"
 # Long options
 long_options = ["help", "database=", "entities_names=", "entities_ids=", "all"]
 
+database = None
 entities_all = None
 entities_ids = None
 entities_names = None
