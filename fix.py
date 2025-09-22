@@ -113,7 +113,7 @@ except getopt.error as err:
 
 if database is None:
     help("Database files must be specified!")
-elif match := re.match("([^\:]+)\:([^\@])+\@([^\:]+)\:(.+)", database):
+elif match := re.match(r"([^\:]+)\:([^\@])+\@([^\:]+)\:(.+)", database):
     import MySQLdb
     import MySQLdb.cursors
 
@@ -129,7 +129,7 @@ else:
 if entities_names:
     entities_names = list(map(str.strip, entities_names.split(",")))
     if not len(entities_names) or not (
-        all([re.match("\w+\.\w+", val) for val in entities_names])
+        all([re.match(r"\w+\.\w+", val) for val in entities_names])
     ):
         help("Entities shall be comma separated list of entities names")
 elif entities_ids:
