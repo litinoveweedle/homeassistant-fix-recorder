@@ -30,4 +30,5 @@ python3 fix.py -h | -d|--database DB (-e|--entities_names ENT)|(-i|--entities_id
 | -p        | --preview        | only preview invalid records, do not change any data                                            |
 
 
-# BUGS: Please report them and create a PR if you have improvements!
+# BUGS:
+Please report them and create a PR if you have improvements!
