@@ -1,3 +1,5 @@
+#!/usr/bin/python3
+
 import sys
 import re
 import getopt
@@ -43,9 +45,20 @@ def help(error):
         print("\nERROR: " + error)
     print("\nWARNING!!!")
     print("Read and follow these steps:")
-    print("1. Stop the HomeAssistant.")
+    print(
+        "1. Stop the HomeAssistant. Use HomeAssistant Terminal, or host command line and execute command 'ha core stop'."
+    )
     print(
         "2. Backup your HomeAssistant database, really, really, really, pretty please."
+    )
+    print("\t- SQLite:")
+    print(
+        "\t\t- You can use HomeAssistant Backup functions (in this case do this before stopping HA)"
+    )
+    print("\t\t- or copy SQLite DB file home_assistant_v2.db somewhere safe.")
+    print("\t- MYSQL:  ")
+    print(
+        "\t\t- Backup HA MYSQL database or at least tables 'statistics' and 'statistics_short_term' using mysqldump or other appropriate tool."
     )
     print(
         "3. Correct any erroneous recorder data (typically 'spikes' anomalies) in the HomeAssistant"
@@ -54,14 +67,16 @@ def help(error):
         "   database tables 'statistics_short_term' and/or 'statistics' in the column 'state'."
     )
     print("4. Execute this tool, see options bellow.")
-    print("5. Restart the HomeAssistant.")
+    print(
+        "5. Restart the HomeAssistant. Use HomeAssistant host command line and execute command 'ha core stop' or restart host."
+    )
     print("\nUSAGE:")
     print(
-        "# python3 fix.py -h | -d|--database DB (-e|--entities_names ENT)|(-i|--entities_ids ENT_ID)(|-a|--all)"
+        "# python3 fix.py -h | -p|--preview -d|--database DB (-e|--entities_names ENT)|(-i|--entities_ids ENT_ID)(|-a|--all)"
     )
     print("-h\t--help\t\t\tprint this help")
     print(
-        "-d\t--database\t\tpath to SQLite db file or MYSQL connect string: user:password@ip:database"
+        "-d\t--database\t\tpath to SQLite db file or MYSQL connect string: 'user:password@ip:database'"
     )
     print(
         "-e\t--entities_names \tcomma separated list of the recorder entities names to correct, typically sensors entities"
@@ -70,6 +85,7 @@ def help(error):
         "-i\t--entities_ids \t\tcomma separated list of the recorder entities IDs to correct (id from the statistic_meta table)"
     )
     print("-a\t--all\t\t\tcorrect records for all recorder entities\n")
+    print("-p\t--preview\t\t\tonly preview invalid records, do not change any data")
     if error:
         exit(1)
     exit(0)
@@ -80,15 +96,23 @@ def help(error):
 argumentList = sys.argv[1:]
 
 # Options
-options = "hd:e:i:a"
+options = "hd:e:i:ap"
 
 # Long options
-long_options = ["help", "database=", "entities_names=", "entities_ids=", "all"]
+long_options = [
+    "help",
+    "database=",
+    "entities_names=",
+    "entities_ids=",
+    "all",
+    "preview",
+]
 
 database = None
-entities_all = None
 entities_ids = None
 entities_names = None
+entities_all = False
+preview_only = False
 
 try:
     # Parsing argument
@@ -105,7 +129,9 @@ try:
         elif currentArgument in ("-i", "--entities_ids"):
             entities_ids = currentValue
         elif currentArgument in ("-a", "--all"):
-            entities_all = 1
+            entities_all = True
+        elif currentArgument in ("-p", "--preview"):
+            preview_only = True
 
 except getopt.error as err:
     # output error, and return with an error code
@@ -135,7 +161,7 @@ if entities_names:
 elif entities_ids:
     entities_ids = list(map(str.strip, entities_ids.split(",")))
     if not len(entities_ids) or not (
-        all([isinstance(val, int) for val in entities_ids])
+        all([re.match(r"\d+", val) for val in entities_ids])
     ):
         help("Entities shall be comma separated list of entities IDs")
 elif entities_all:
@@ -159,16 +185,16 @@ elif db == "mysql":
 if entities_names:
     cursor.execute(
         "SELECT * FROM statistics_meta WHERE has_sum = 1 AND statistic_id IN ({})".format(
-            result=", ".join(entities_names)
+            ", ".join(entities_names)
         )
     )
-if entities_ids:
+elif entities_ids:
     cursor.execute(
         "SELECT * FROM statistics_meta WHERE has_sum = 1 AND id IN ({});".format(
-            result=", ".join(entities_ids)
+            ", ".join(entities_ids)
         )
     )
-else:
+elif entities_all:
     cursor.execute("SELECT * FROM statistics_meta WHERE has_sum = 1")
 
 # Above Query Gives Us The Current Date
@@ -208,7 +234,8 @@ for row in records:
                     stat["id"], stat["sum"], prev_sum
                 )
             )
-            fix_record(db_conn3, stat["id"], prev_sum)
+            if not preview_only:
+                fix_record(db_conn3, stat["id"], prev_sum)
 
         prev_state = stat["state"]
         last["id"] = stat["id"]
@@ -273,7 +300,8 @@ for row in records:
                     stat["id"], stat["sum"], prev_sum
                 )
             )
-            fix_record_short(db_conn3, stat["id"], prev_sum)
+            if not preview_only:
+                fix_record_short(db_conn3, stat["id"], prev_sum)
 
         prev_state = stat["state"]
     if prev_state is None:
@@ -318,7 +346,8 @@ for row in records:
                     stat["id"], stat["sum"], next_sum
                 )
             )
-            fix_record_short(db_conn3, stat["id"], next_sum)
+            if not preview_only:
+                fix_record_short(db_conn3, stat["id"], next_sum)
 
         next_state = stat["state"]
     if next_state is None:
